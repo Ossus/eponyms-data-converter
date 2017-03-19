@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 _input = './data/eponyms.xml'
 _output = './export.json'
-_main_elem = 'element'
+_main_elem = 'main'
 
 
 def convert(source, target):
@@ -17,9 +17,8 @@ def convert(source, target):
 
 def read_and_convert(source):
 	root = ET.parse(source).getroot()
-	categories = []
-	eponyms = []
-	audits = []
+	tags = []
+	main = []
 	
 	# author
 	andrew = {
@@ -30,38 +29,42 @@ def read_and_convert(source):
 	
 	# find categories
 	for category in root.iter('category'):
-		cat = category.attrib
-		cat['_id'] = cat.get('tag').lower()
-		cat['type'] = 'category'
-		del cat['tag']
-		categories.append(cat)
+		tag = {
+			'_id': category.get('tag').lower(),
+			'type': 'tag',
+			'content': {
+				'en': category.get('title'),
+			},
+		}
+		tags.append(tag)
 	
 	# find eponyms
 	for eponym in root.iter('eponym'):
 		epo = {
 			'_id': eponym.get('id').lower(),
 			'type': _main_elem,
-			'name': eponym.find('name').text,
-			'text': eponym.find('desc').text,
-			'categories': [cat.text.lower() for cat in eponym.iter('cat')],
+			'tags': [cat.text.lower() for cat in eponym.iter('cat')],
+			'content': {
+				'en': {
+					'name': eponym.find('name').text,
+					'text': eponym.find('desc').text,
+				}
+			},
+			'audits': [{
+				'author': 'andrewyee',
+				'date': arrow.get(eponym.find('c').text).format('YYYY-MM-DD'),
+				'action': 'create',
+			}],
 		}
-		audit = {
-			'_id': 'aud_{}'.format(epo['_id']),
-			'type': 'audit',
-			'agent': 'andrewyee',
-			'date': arrow.get(eponym.find('c').text).format('YYYY-MM-DD'),
-			'action': 'create',
-			'target': epo['_id'],
-		}
-		eponyms.append(epo)
-		audits.append(audit)
+		main.append(epo)
 			
 	# concat
+	docs = [andrew]
+	docs.extend(tags)
+	docs.extend(main)
 	return {
-		'authors': [andrew],
-		'categories': categories,
-		'elements': eponyms,
-		'audits': audits,
+		'date': arrow.get().isoformat(),
+		'documents': docs,
 	}
 
 
